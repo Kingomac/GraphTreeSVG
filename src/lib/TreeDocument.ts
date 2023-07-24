@@ -1,76 +1,91 @@
 import { SvgDocument } from "./SvgDocument";
-import TreeNode from "./TreeNode";
+import Tree from "./tree/Tree";
+import TreeNode from "./tree/TreeNode";
 import { createElementSVG, setAttributes } from "./util";
 
-export default class TreeDocument extends SvgDocument<TreeNode> {
+export default class TreeDocument<T> {
+  private readonly COL_WIDTH = 50;
+  private readonly DRAW_SIZE_X = 400;
+  private readonly DRAW_SIZE_Y = 400;
+  private readonly MARGIN = 10;
 
-    private readonly COL_WIDTH = 50;
-    private readonly DRAW_SIZE_X = 400
-    private readonly DRAW_SIZE_Y = 400
-    private readonly MARGIN = 10
+  constructor(private tree: Tree<T>) {}
 
-    constructor(rootNode: TreeNode) {
-        super(rootNode);
-        
+  async buildSvg() {
+    if (this.tree.root == undefined) throw new Error();
+
+    // Calculate initial X
+    await this.calculateInitialX();
+    await this.calculateInitialY();
+    await this.centerParents();
+
+    return await this.makeDraw();
+  }
+
+  private async makeDraw() {
+    const elems: Promise<SVGElement>[] = [];
+    for await (const node of this.tree.loopPreOrder()) {
+      elems.push(node.buildSvg());
     }
+    const result = await Promise.all(elems);
+    return await createElementSVG({
+      tag: "svg",
+      attr: {
+        viewBox: "0 0 400 400",
+      },
+      children: result,
+    });
+  }
 
-
-    async buildSvg() {
-        if(this.parentNode == undefined) throw new Error()
-        
-        const width = await this.getWidth() // number of columns
-        const docWidth = width * this.COL_WIDTH
-        console.log(`Document width: ${width} cols: ${docWidth}`)
-        const draw = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-        draw.setAttribute('viewBox', `0 0 ${this.DRAW_SIZE_X} ${this.DRAW_SIZE_Y}`)
-        let row: TreeNode[] = [this.parentNode]
-        let i = 0
-        let x = 50 // starting at (10,10)
-        let y = this.MARGIN
-        while(row.length > 0) {
-            let newrow: TreeNode[] = []
-            console.log("BUCLE*** " + i)
-            console.log(row.length)
-            const xInc = 100/(row.length+1)
-            console.log("length+1: " + (row.length+1).toString())
-            console.log(xInc)
-            x = xInc
-            for await(let i of row) {
-                const textEl = await createElementSVG({
-                    tag: 'text',
-                    attr: {
-                        fill: 'black',
-                        x: `${x}%`,
-                        y: y.toString()
-                    },
-                    children: i.text
-                }) as SVGTextContentElement
-                draw.append(textEl)
-
-                newrow.push.apply(newrow, i.children)
-                x += xInc
-            }
-            row = newrow
-            y += this.COL_WIDTH
-            i++
-        }
-
-        return draw
+  private async calculateInitialY() {
+    if (this.tree.root == undefined) throw new Error();
+    let y = 1;
+    let nodes = [this.tree.root];
+    while (nodes.length > 0) {
+      const newnodes = [];
+      for await (const node of nodes) {
+        node.y = y;
+        newnodes.push(...node.children);
+      }
+      y++;
+      nodes = newnodes;
     }
+  }
 
-    async getWidth() {
-        if(this.parentNode == undefined) throw new Error()
-        let width = 0
-        let row = [this.parentNode]
-        while(row.length > 0) {
-            if(row.length > width)
-                width = row.length
-            const newrow: TreeNode[] = []
-            for await(let r of row) {
-                newrow.push.apply(newrow, r.children)
-            }
-            row = newrow
-        }
-        return width
+  async centerParents() {
+    console.log("leafs:", await this.tree.getLeaf());
+    const parents = (await this.tree.getLeaf()).map((i) => {
+      if (i.parent != undefined) return i.parent;
+    }) as TreeNode<T>[];
+    await this.centerParentsRecursive(...parents);
+  }
+
+  private async centerParentsRecursive(...parents: TreeNode<T>[]) {
+    const newparents = [];
+    for (const parent of parents) {
+      let min = Number.MAX_VALUE;
+      let max = Number.MIN_VALUE;
+      for (const child of parent.children) {
+        if (child.x < min) min = child.x;
+        if (child.x > max) max = child.x;
+      }
+      console.log("set", parent.value, "x", (max + min) / 2);
+      parent.x = (max + min) / 2;
+      if (parent.parent != undefined) newparents.push(parent.parent);
     }
+    if (newparents.length > 0) await this.centerParentsRecursive(...newparents);
+  }
+
+  private async calculateInitialX() {
+    for await (const node of this.tree.loopPostOrder()) {
+      console.log("calculating X of", node.value);
+      if (!(await node.isLeftMost())) {
+        node.x = (await node.getPreviousSibling()).x + 1;
+        console.log("prev sibling", await node.getPreviousSibling());
+      } else {
+        node.x = 0;
+      }
+      console.log("is", node.x);
+    }
+  }
 }
