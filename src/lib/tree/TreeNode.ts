@@ -4,6 +4,10 @@ import { createElementSVG } from "../util";
 export default class TreeNode<T> extends GraphNode<T> {
   public children: TreeNode<T>[];
   public parent: TreeNode<T> | undefined;
+  /**
+   * X axis displacement to avoid overlapping
+   */
+  public mod: number = 0;
 
   constructor({
     parent,
@@ -38,7 +42,7 @@ export default class TreeNode<T> extends GraphNode<T> {
     return await createElementSVG({
       tag: "text",
       attr: {
-        x: (this.x * 30).toString(),
+        x: ((this.x + this.mod) * 30).toString(),
         y: (this.y * 30).toString(),
       },
       children: String(this.value).toString(),

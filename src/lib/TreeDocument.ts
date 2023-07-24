@@ -1,22 +1,14 @@
-import { SvgDocument } from "./SvgDocument";
 import Tree from "./tree/Tree";
 import TreeNode from "./tree/TreeNode";
-import { createElementSVG, setAttributes } from "./util";
+import { createElementSVG } from "./util";
 
 export default class TreeDocument<T> {
-  private readonly COL_WIDTH = 50;
-  private readonly DRAW_SIZE_X = 400;
-  private readonly DRAW_SIZE_Y = 400;
-  private readonly MARGIN = 10;
-
   constructor(private tree: Tree<T>) {}
 
   async buildSvg() {
     if (this.tree.root == undefined) throw new Error();
 
-    // Calculate initial X
-    await this.calculateInitialX();
-    await this.calculateInitialY();
+    await this.calculateInitialPosition();
     await this.centerParents();
 
     return await this.makeDraw();
@@ -35,21 +27,6 @@ export default class TreeDocument<T> {
       },
       children: result,
     });
-  }
-
-  private async calculateInitialY() {
-    if (this.tree.root == undefined) throw new Error();
-    let y = 1;
-    let nodes = [this.tree.root];
-    while (nodes.length > 0) {
-      const newnodes = [];
-      for await (const node of nodes) {
-        node.y = y;
-        newnodes.push(...node.children);
-      }
-      y++;
-      nodes = newnodes;
-    }
   }
 
   async centerParents() {
@@ -76,16 +53,21 @@ export default class TreeDocument<T> {
     if (newparents.length > 0) await this.centerParentsRecursive(...newparents);
   }
 
-  private async calculateInitialX() {
-    for await (const node of this.tree.loopPostOrder()) {
-      console.log("calculating X of", node.value);
-      if (!(await node.isLeftMost())) {
-        node.x = (await node.getPreviousSibling()).x + 1;
-        console.log("prev sibling", await node.getPreviousSibling());
-      } else {
-        node.x = 0;
+  private async calculateInitialPosition() {
+    if (this.tree.root == undefined) return;
+    let nodes = [this.tree.root];
+    let level = 1; // y position
+    while (nodes.length > 0) {
+      let x = 0;
+      const newnodes: TreeNode<T>[] = [];
+      for (const node of nodes) {
+        node.y = level;
+        node.x = x;
+        x++;
+        newnodes.push(...node.children);
       }
-      console.log("is", node.x);
+      level++;
+      nodes = newnodes;
     }
   }
 }

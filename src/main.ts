@@ -23,6 +23,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             new TreeNode<number>({ value: 8 }),
           ],
         }),
+        new TreeNode<number>({
+          value: 33,
+          children: [
+            new TreeNode<number>({ value: 44 }),
+            new TreeNode<number>({ value: 55 }),
+            new TreeNode<number>({ value: 66 }),
+          ],
+        }),
       ],
       value: 0,
     }),
