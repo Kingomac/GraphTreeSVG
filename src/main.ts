@@ -14,5 +14,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       await tree.updateParents();
       const doc = new TreeDocument<string>(tree);
       document.body.append(await doc.buildSvg());
+      for await (const level of tree.loopLevelsTopBottom()) {
+        console.log("level:", level.level, "nodes:", level.nodes);
+      }
     };
 });

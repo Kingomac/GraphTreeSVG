@@ -24,6 +24,35 @@ export default class Tree<T> {
     return Array.from(this.loopLeafsSync());
   }
 
+  async *loopLevelsTopBottom(): AsyncIterableIterator<{
+    nodes: TreeNode<T>[];
+    level: number;
+  }> {
+    if (this.root == undefined) return;
+    yield { nodes: [this.root], level: 0 };
+    yield* this.loopLevelsTopBottomRecursive({ nodes: [this.root], level: 0 });
+  }
+
+  private async *loopLevelsTopBottomRecursive({
+    nodes,
+    level,
+  }: {
+    nodes: TreeNode<T>[];
+    level: number;
+  }): AsyncIterableIterator<{ nodes: TreeNode<T>[]; level: number }> {
+    const newLevel: TreeNode<T>[] = [];
+    for await (const node of nodes) {
+      newLevel.push(...node.children);
+    }
+    if (newLevel.length > 0) {
+      yield { nodes: newLevel, level: level + 1 };
+      yield* this.loopLevelsTopBottomRecursive({
+        nodes: newLevel,
+        level: level + 1,
+      });
+    }
+  }
+
   async *loopLeafs(): AsyncIterableIterator<TreeNode<T>> {
     if (this.root == undefined) return;
     yield* this.loopLeafsRecursive(this.root);
